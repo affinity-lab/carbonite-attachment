@@ -1,0 +1,13 @@
+{
+  "name": "@affinity-lab/carbonite-attachment",
+  "version": "1.0.0",
+  "main": "index.js",
+  "author": {
+    "name": "Gergely Laborci"
+  },
+  "dependencies": {
+    "@affinity-lab/carbonite": "github:affinity-lab/carbonite",
+    "micromatch": "^4.0.5",
+    "sharp": "^0.31.3"
+  }
+}
