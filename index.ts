@@ -1,10 +1,8 @@
-export {default as storage} from "./src/storage";
-export {default as Subscriber} from "./src/subscriber";
-export {default as PathStrategyBase36} from "./src/path-strategy-base36";
-export {default as attachmentModuleManager} from "./src/module-manager";
+export {default as AttachmentCollection} from "./src/_module";
+export {default as AttachmentService} from "./src/attachment-service";
 export {default as Image} from "./src/image";
-export {default as AttachmentCollection} from "./src/decorator";
 export {default as Attachment} from "./src/attachment";
+export {default as Collection} from "./src/collection";
 export {default as CollectionOwner} from "./src/collection-owner";
 export {default as CollectionDescriptor} from "./src/collection-descriptor";
 export {default as MinImageSizeException} from "./src/exceptions/min-image-size-exception";

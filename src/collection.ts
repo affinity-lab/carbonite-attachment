@@ -1,7 +1,7 @@
-import CollectionDescriptor from "./collection-descriptor";
+import type CollectionDescriptor from "./collection-descriptor";
 import Attachment from "./attachment";
 import * as micromatch from "micromatch";
-import CollectionOwner from "./collection-owner";
+import type CollectionOwner from "./collection-owner";
 import FileNotFoundException from "./exceptions/file-not-found-exception";
 import FileSizeException from "./exceptions/file-size-exception";
 import FileMimeTypeException from "./exceptions/file-mime-type-exception";

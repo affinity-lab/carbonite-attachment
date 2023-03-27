@@ -2,42 +2,37 @@ import {AfterRemove, AfterUpdate, Column, Entity, MoreThanOrEqual, UpdateDateCol
 
 import Image from "./image";
 import {Atom} from "@affinity-lab/carbonite";
-import storage from "./storage";
 import CollectionOwner from "./collection-owner";
-import attachmentConfig from "./config";
 import AttachmentUpdated from "./events/attachment-updated";
 import AttachmentRemoved from "./events/attachment-removed";
-import CollectionDescriptor from "./collection-descriptor";
-import {GuardFunction} from "./collection";
-import {Export, MaterializeIt, FileDescriptor} from "@affinity-lab/util";
+import type CollectionDescriptor from "./collection-descriptor";
+import type {GuardFunction} from "./collection";
+import {Export, FileDescriptor, MaterializeIt} from "@affinity-lab/util";
+import AttachmentService from "./attachment-service";
 
-@Entity({name: attachmentConfig.table})
+@Entity({name: AttachmentService.instance.table})
 export default class Attachment extends Atom {
 	@Export() id: number;
-	@Column() private fileName: string
-	@Export() @Column() mimeType: string
-	@Export() @Column() size: number
-	@Export() @Column({default: null}) title: string | null;
+	@Column({type: "varchar", length: "255"}) private fileName: string
+	@Export() @Column({type: "varchar", length: "255"}) mimeType: string
+	@Export() @Column({type: "int", unsigned: true}) size: number
+	@Export() @Column({type: "varchar", length: 255, default: null}) title: string | null;
 	@Export() @Column({type: "int", unsigned: true}) position: number;
 	@Export() @Column({type: 'json', default: null}) image: Image | null
-	@Column({update: false}) entity: string;
-	@Column({update: false,}) collection: string;
-	@Column({update: false, unsigned: true}) ownerId: number;
+	@Column({update: false, type: "varchar", length: "255"}) entity: string;
+	@Column({update: false, type: "varchar", length: "255"}) collection: string;
+	@Column({update: false, type: "int", unsigned: true}) ownerId: number;
 	@UpdateDateColumn({type: "timestamp", default: () => "CURRENT_TIMESTAMP(6)", onUpdate: "CURRENT_TIMESTAMP(6)"}) public updated_at: Date;
 
 	@MaterializeIt() get owner(): CollectionOwner {return new CollectionOwner(this.entity, this.collection, this.ownerId);}
-
 	@Export() get ver(): string { return Math.ceil((this.updated_at.getTime() / 1000)).toString(36); }
-
 	@Export() get name(): string {return this.fileName;}
 	set name(name: string) {this.rename(name);}
 	@Export() get isImage(): boolean {return this.image !== null;}
-	get path(): string {return storage.pathStrategy.createPath(this);}
-	get fullPath(): string {return storage.fullPath(this);}
-
+	get path(): string {return AttachmentService.instance.pathStrategy.createPath(this);}
+	get fullPath(): string {return AttachmentService.instance.fullPath(this);}
 	@MaterializeIt() get ownerItem(): Promise<Atom> { return this.collectionDescriptor.atom.pick(this.ownerId)}
-
-	get collectionDescriptor(): CollectionDescriptor {return storage.collections[this.owner.cid];}
+	get collectionDescriptor(): CollectionDescriptor {return AttachmentService.instance.collections[this.owner.cid];}
 	get isGuarded(): boolean {return this.collectionDescriptor.isGuarded;}
 	get guard(): GuardFunction | undefined {return this.collectionDescriptor.guard}
 
@@ -53,13 +48,17 @@ export default class Attachment extends Atom {
 
 	async rename(name: string) {
 		if (this.fileName === name) return;
-		await storage.renameFile(this, name);
+		await AttachmentService.instance.renameFile(this, name);
 		this.fileName = name;
 		await this.save();
 	}
 
 	async delete(reorder: boolean = true) {
-		await storage.deleteFile(this);
+		try{
+			await AttachmentService.instance.deleteFile(this);
+		}catch (e){
+			console.error("Could not delete file for " + this.id)
+		}
 		await this.remove();
 		if (reorder) await Attachment.reorder(this.owner);
 	}
@@ -80,9 +79,8 @@ export default class Attachment extends Atom {
 		) : null;
 		record.position = (await this.getMaxPos(owner)) + 1;
 
-
 		let attachment = await record.save();
-		await storage.storeFile(file.file, attachment);
+		await AttachmentService.instance.storeFile(file.file, attachment);
 		return attachment;
 	}
 
@@ -101,12 +99,9 @@ export default class Attachment extends Atom {
 	static async allForOwner(owner: CollectionOwner): Promise<Array<Attachment>> {return this.find({where: owner});}
 	static async countOfOwner(owner: CollectionOwner): Promise<number> { return this.countBy(owner);}
 	static async firstOfOwner(owner: CollectionOwner): Promise<Attachment | null> { return this.findOne({where: owner, order: {position: "ASC"}});}
-	static async findOfOwner(owner: CollectionOwner, fileName: string): Promise<Attachment[]> {
-		return this.createQueryBuilder().where("fileName LIKE :fileName", {fileName}).andWhere(owner).orderBy({position: "ASC"}).getMany();
-	}
+	static async findOfOwner(owner: CollectionOwner, fileName: string): Promise<Attachment[]> { return this.createQueryBuilder().where("fileName LIKE :fileName", {fileName}).andWhere(owner).orderBy({position: "ASC"}).getMany();}
 	static async pickOfOwner(owner: CollectionOwner, id: number): Promise<Attachment | null> { return this.findOne({where: {...owner, id}});}
 
-	@AfterUpdate() afterUpdate() { storage.eventSource.emit(new AttachmentUpdated(this.id));}
-	@AfterRemove() afterRemove() { storage.eventSource.emit(new AttachmentRemoved(this.id));}
-
+	@AfterUpdate() afterUpdate() { AttachmentService.instance.eventSource.emit(new AttachmentUpdated(this.id));}
+	@AfterRemove() afterRemove() { AttachmentService.instance.eventSource.emit(new AttachmentRemoved(this.id));}
 }
